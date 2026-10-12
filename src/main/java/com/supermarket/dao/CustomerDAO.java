@@ -128,16 +128,26 @@ public class CustomerDAO {
     }
 
     public void addCustomer(Customer customer) throws Exception {
-        String sql="INSERT INTO customers(card_id,customer_name,phone,email) VALUES(?,?,?,?)";
-        try(Connection c=DBConnection.getConnection(); PreparedStatement p=c.prepareStatement(sql)){
-            p.setString(1,customer.getCardId()); p.setString(2,customer.getCustomerName()); p.setString(3,customer.getPhone()); p.setString(4,customer.getEmail()); p.executeUpdate();
+        String sql = SQLQueryLoader.getQuery("CUSTOMER_CREATE");
+        try (Connection connection = DBConnection.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, customer.getCardId());
+            statement.setString(2, customer.getCustomerName());
+            statement.setString(3, customer.getPhone());
+            statement.setString(4, customer.getEmail());
+            statement.executeUpdate();
         }
     }
 
     public void updateCustomer(Customer customer) throws Exception {
-        String sql="UPDATE customers SET customer_name=?,phone=?,email=? WHERE card_id=?";
-        try(Connection c=DBConnection.getConnection(); PreparedStatement p=c.prepareStatement(sql)){
-            p.setString(1,customer.getCustomerName()); p.setString(2,customer.getPhone()); p.setString(3,customer.getEmail()); p.setString(4,customer.getCardId()); p.executeUpdate();
+        String sql = SQLQueryLoader.getQuery("CUSTOMER_UPDATE");
+        try (Connection connection = DBConnection.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, customer.getCustomerName());
+            statement.setString(2, customer.getPhone());
+            statement.setString(3, customer.getEmail());
+            statement.setString(4, customer.getCardId());
+            statement.executeUpdate();
         }
     }
 }

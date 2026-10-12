@@ -22,6 +22,9 @@ The `sql/` folder contains the complete DBMS implementation and SQL queries.
 
 The `src/main/java/` folder contains the Java application.
 
+For subject-wise submission, see `DBMS_SUBMISSION.md` and `JAVA_SUBMISSION.md`.
+All application SQL is stored in the SQL folder and loaded by `SQLQueryLoader`; DAO classes contain no inline SQL.
+
 ## Requirements
 
 - JDK 17+

@@ -1,0 +1,15 @@
+USE supermarket_db;
+
+CREATE TABLE IF NOT EXISTS app_users (
+    user_id INT PRIMARY KEY AUTO_INCREMENT,
+
+    username VARCHAR(50) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    full_name VARCHAR(100) NOT NULL,
+
+    role ENUM('ADMIN', 'BILLER', 'INVENTORY') NOT NULL,
+
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;

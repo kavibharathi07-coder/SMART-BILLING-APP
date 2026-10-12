@@ -4,6 +4,7 @@ import com.supermarket.config.DBConnection;
 import com.supermarket.enums.PaymentMode;
 import com.supermarket.model.Bill;
 import com.supermarket.model.BillItem;
+import com.supermarket.util.SQLQueryLoader;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -14,8 +15,12 @@ import java.util.List;
 
 public class BillDAO {
 
+    private String query(String name) {
+        return SQLQueryLoader.getQuery(name);
+    }
+
     public int createBill(Connection connection, Bill bill) throws Exception {
-        String sql = "INSERT INTO bills (bill_no, customer_id, biller_id, subtotal, discount, tax_total, grand_total, payment_mode, cash_received, change_amount, transaction_ref) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        String sql = query("BILL_CREATE");
 
         try (PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, bill.getBillNo());
@@ -42,7 +47,7 @@ public class BillDAO {
     }
 
     public void addBillItem(Connection connection, int billId, BillItem item) throws Exception {
-        String sql = "INSERT INTO bill_items (bill_id, product_id, quantity, unit_price, gst_rate, tax_amount, line_total) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        String sql = query("BILL_ITEM_CREATE");
 
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setInt(1, billId);
@@ -57,7 +62,7 @@ public class BillDAO {
     }
 
     public Bill getBillById(int billId) throws Exception {
-        String sql = "SELECT * FROM bills WHERE bill_id = ?";
+        String sql = query("BILL_FIND_BY_ID");
 
         try (Connection connection = DBConnection.getConnection();
              PreparedStatement ps = connection.prepareStatement(sql)) {
@@ -87,7 +92,7 @@ public class BillDAO {
     }
 
     public Bill getBillByNo(String billNo) throws Exception {
-        String sql = "SELECT * FROM bills WHERE bill_no = ?";
+        String sql = query("BILL_FIND_BY_NUMBER");
 
         try (Connection connection = DBConnection.getConnection();
              PreparedStatement ps = connection.prepareStatement(sql)) {
@@ -117,7 +122,7 @@ public class BillDAO {
     }
 
     public List<BillItem> getBillItems(int billId) throws Exception {
-        String sql = "SELECT bi.*, p.product_name FROM bill_items bi JOIN products p ON p.product_id = bi.product_id WHERE bi.bill_id = ? ORDER BY bi.bill_item_id";
+        String sql = query("BILL_ITEMS_BY_BILL");
         List<BillItem> items = new ArrayList<>();
 
         try (Connection connection = DBConnection.getConnection();
@@ -145,7 +150,7 @@ public class BillDAO {
     }
 
     public void deductStock(Connection connection, BillItem item) throws Exception {
-        String sql = "UPDATE products SET stock_qty = stock_qty - ? WHERE product_id = ? AND active = TRUE AND stock_qty >= ?";
+        String sql = query("PRODUCT_DEDUCT_STOCK");
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setInt(1, item.getQuantity());
             ps.setInt(2, item.getProductId());
@@ -154,13 +159,16 @@ public class BillDAO {
                 throw new IllegalStateException("Insufficient stock for product " + item.getProductName());
             }
         }
-        try (PreparedStatement ps = connection.prepareStatement("INSERT INTO stock_transactions(product_id,transaction_type,quantity,notes) VALUES(?,'SALE',?,?)")) {
-            ps.setInt(1, item.getProductId()); ps.setInt(2, -item.getQuantity()); ps.setString(3, "Bill item"); ps.executeUpdate();
+        try (PreparedStatement ps = connection.prepareStatement(query("STOCK_RECORD_SALE"))) {
+            ps.setInt(1, item.getProductId());
+            ps.setInt(2, -item.getQuantity());
+            ps.setString(3, "Bill item");
+            ps.executeUpdate();
         }
     }
 
     public List<String[]> getCustomerHistory(String cardId) throws Exception {
-        String sql = "SELECT b.bill_no, DATE_FORMAT(b.created_at, '%Y-%m-%d %H:%i:%s') AS created_at, u.full_name, b.grand_total FROM bills b JOIN customers c ON b.customer_id = c.customer_id JOIN app_users u ON b.biller_id = u.user_id WHERE c.card_id = ? ORDER BY b.created_at DESC";
+        String sql = query("CUSTOMER_BILL_HISTORY");
         List<String[]> rows = new ArrayList<>();
 
         try (Connection connection = DBConnection.getConnection();
@@ -183,7 +191,7 @@ public class BillDAO {
     }
 
     public List<String[]> getBillerHistory(int billerId) throws Exception {
-        String sql = "SELECT b.bill_no, DATE_FORMAT(b.created_at, '%Y-%m-%d %H:%i:%s') AS created_at, COALESCE(c.customer_name, 'WALK-IN') AS customer_name, b.grand_total FROM bills b LEFT JOIN customers c ON b.customer_id = c.customer_id WHERE b.biller_id = ? ORDER BY b.created_at DESC";
+        String sql = query("BILLER_BILL_HISTORY");
         List<String[]> rows = new ArrayList<>();
 
         try (Connection connection = DBConnection.getConnection();

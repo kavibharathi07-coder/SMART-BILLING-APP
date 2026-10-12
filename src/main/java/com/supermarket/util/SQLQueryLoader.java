@@ -1,15 +1,17 @@
 package com.supermarket.util;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Stream;
 
 public class SQLQueryLoader {
 
-    private static final Map<String, String> queries = new HashMap<>();
+    private static final Map<String, String> queries = new LinkedHashMap<>();
 
     private static final String SQL_FOLDER = "sql";
 
@@ -29,7 +31,14 @@ public class SQLQueryLoader {
 
     private static void loadAllQueries() {
 
-        try (Stream<Path> paths = Files.walk(Path.of(SQL_FOLDER))) {
+        Path sqlPath = findSqlFolder();
+
+        if (sqlPath == null) {
+            loadClasspathQueries();
+            return;
+        }
+
+        try (Stream<Path> paths = Files.walk(sqlPath)) {
 
             paths
                 .filter(Files::isRegularFile)
@@ -38,8 +47,49 @@ public class SQLQueryLoader {
 
         } catch (IOException e) {
             throw new RuntimeException(
-                "Failed to load SQL files from: " + SQL_FOLDER, e
+                "Failed to load SQL files from: " + sqlPath, e
             );
+        }
+    }
+
+    private static Path findSqlFolder() {
+        Path[] candidates = {
+            Path.of(SQL_FOLDER),
+            Path.of("src", "main", "resources", SQL_FOLDER),
+            Path.of("target", "classes", SQL_FOLDER)
+        };
+
+        for (Path candidate : candidates) {
+            if (Files.isDirectory(candidate)) {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private static void loadClasspathQueries() {
+        String[] resources = {
+            "sql/04_crud_queries/application_queries.sql",
+            "sql/04_crud_queries/product_queries.sql",
+            "sql/04_crud_queries/customer_queries.sql",
+            "sql/04_crud_queries/user_queries.sql"
+        };
+
+        ClassLoader classLoader = SQLQueryLoader.class.getClassLoader();
+
+        for (String resource : resources) {
+            try (InputStream stream = classLoader.getResourceAsStream(resource)) {
+                if (stream == null) {
+                    throw new IllegalStateException("SQL resource not found: " + resource);
+                }
+
+                String content = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+                parseSqlSections(content, resource);
+            } catch (IOException exception) {
+                throw new RuntimeException("Failed to read SQL resource: " + resource,
+                        exception);
+            }
         }
     }
 
@@ -68,12 +118,22 @@ public class SQLQueryLoader {
             }
 
             String queryName = normalizeQueryName(parts[0]);
-            String query = parts[1].trim();
+            String query = normalizeSql(parts[1]);
 
             if (!queryName.isEmpty()) {
                 queries.put(queryName, query);
             }
         }
+    }
+
+    private static String normalizeSql(String query) {
+        String normalized = query.trim();
+
+        while (normalized.endsWith(";")) {
+            normalized = normalized.substring(0, normalized.length() - 1).trim();
+        }
+
+        return normalized;
     }
 
     public static String load(String sqlFile, String queryName) {
@@ -88,9 +148,8 @@ public class SQLQueryLoader {
             return cached;
         }
 
-        Path filePath = Path.of(sqlFile);
         try {
-            String content = Files.readString(filePath);
+            String content = readSql(sqlFile);
             String[] sections = content.split("-- ");
 
             for (String section : sections) {
@@ -105,7 +164,7 @@ public class SQLQueryLoader {
 
                 String candidateName = normalizeQueryName(parts[0]);
                 if (candidateName.equals(normalizedName)) {
-                    return parts[1].trim();
+                    return normalizeSql(parts[1]);
                 }
             }
         } catch (IOException e) {
@@ -117,6 +176,23 @@ public class SQLQueryLoader {
         throw new RuntimeException(
             "SQL query not found: " + normalizedName + " in " + sqlFile
         );
+    }
+
+    private static String readSql(String sqlFile) throws IOException {
+        Path filePath = Path.of(sqlFile);
+
+        if (Files.exists(filePath)) {
+            return Files.readString(filePath);
+        }
+
+        try (InputStream stream = SQLQueryLoader.class.getClassLoader()
+                .getResourceAsStream(sqlFile.replace('\\', '/'))) {
+            if (stream == null) {
+                throw new IOException("SQL file or classpath resource not found: " + sqlFile);
+            }
+
+            return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+        }
     }
 
     public static String getQuery(String queryName) {
