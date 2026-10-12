@@ -2,7 +2,6 @@ package com.supermarket.service;
 
 import com.supermarket.dao.ReportDAO;
 
-import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;

@@ -7,7 +7,7 @@ public class Main {
     public static void main(String[] args) {
 
         LoginMenu loginMenu =
-                new LoginMenu();
+                new LoginMenu();2
 
         loginMenu.show();
     }
